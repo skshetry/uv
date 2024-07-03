@@ -636,6 +636,30 @@ async fn run() -> Result<ExitStatus> {
             )
             .await
         }
+        Commands::Project(ProjectCommand::Init(args)) => {
+            // Resolve the settings from the command-line arguments and workspace configuration.
+            let args = settings::InitSettings::resolve(args, filesystem);
+            show_settings!(args);
+
+            // Initialize the cache.
+            let cache = cache.init()?.with_refresh(args.refresh);
+
+            commands::init(
+                args.path,
+                args.name,
+                args.no_readme,
+                args.no_pin,
+                args.python,
+                globals.python_preference,
+                globals.python_fetch,
+                globals.preview,
+                globals.connectivity,
+                globals.native_tls,
+                &cache,
+                printer,
+            )
+            .await
+        }
         Commands::Project(ProjectCommand::Run(args)) => {
             // Resolve the settings from the command-line arguments and workspace configuration.
             let args = settings::RunSettings::resolve(args, filesystem);

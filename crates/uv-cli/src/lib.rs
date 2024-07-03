@@ -269,6 +269,9 @@ pub enum PipCommand {
 
 #[derive(Subcommand)]
 pub enum ProjectCommand {
+    /// Initialize a project.
+    #[clap(hide = true)]
+    Init(InitArgs),
     /// Run a command in the project environment.
     #[clap(hide = true)]
     Run(RunArgs),
@@ -1639,6 +1642,42 @@ impl ExternalCommand {
             [cmd, args @ ..] => (Some(cmd), args),
         }
     }
+}
+
+#[derive(Args)]
+#[allow(clippy::struct_excessive_bools)]
+pub struct InitArgs {
+    #[command(flatten)]
+    pub refresh: RefreshArgs,
+
+    /// The path of the project.
+    pub path: Option<String>,
+
+    /// The name of the project, defaults to the name of the directory.
+    #[arg(long)]
+    pub name: Option<PackageName>,
+
+    /// Do not create a readme file.
+    #[arg(long)]
+    pub no_readme: bool,
+
+    /// Do not create a `.python-version` file.
+    #[arg(long)]
+    pub no_pin: bool,
+
+    /// The Python interpreter to write to `.python-version`.
+    ///
+    /// By default, `uv` uses the virtual environment in the current working directory or any parent
+    /// directory, falling back to searching for a Python executable in `PATH`. The `--python`
+    /// option allows you to specify a different interpreter.
+    ///
+    /// Supported formats:
+    /// - `3.10` looks for an installed Python 3.10 using `py --list-paths` on Windows, or
+    ///   `python3.10` on Linux and macOS.
+    /// - `python3.10` or `python.exe` looks for a binary with the given name in `PATH`.
+    /// - `/home/ferris/.local/bin/python3.10` uses the exact Python at the given path.
+    #[arg(long, short, env = "UV_PYTHON", verbatim_doc_comment)]
+    pub python: Option<String>,
 }
 
 #[derive(Args)]
