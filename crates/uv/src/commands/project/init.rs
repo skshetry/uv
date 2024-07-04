@@ -20,11 +20,7 @@ use crate::commands::ExitStatus;
 use crate::printer::Printer;
 
 /// Add one or more packages to the project requirements.
-#[allow(
-    clippy::too_many_arguments,
-    clippy::fn_params_excessive_bools,
-    clippy::single_match_else
-)]
+#[allow(clippy::single_match_else)]
 pub(crate) async fn init(
     path: Option<String>,
     name: Option<PackageName>,
