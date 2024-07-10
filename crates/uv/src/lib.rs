@@ -813,11 +813,28 @@ async fn run_project(
                 .with
                 .into_iter()
                 .map(RequirementsSource::from_package)
+                .chain(
+                    args.requirement
+                        .into_iter()
+                        .map(RequirementsSource::from_requirements_file),
+                )
+                .collect::<Vec<_>>();
+            let constraints = args
+                .constraint
+                .into_iter()
+                .map(RequirementsSource::from_constraints_txt)
+                .collect::<Vec<_>>();
+            let overrides = args
+                .r#override
+                .into_iter()
+                .map(RequirementsSource::from_overrides_txt)
                 .collect::<Vec<_>>();
 
             commands::run(
                 args.command,
                 requirements,
+                &constraints,
+                &overrides,
                 args.package,
                 args.extras,
                 args.dev,

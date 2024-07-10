@@ -3,7 +3,7 @@ use std::ffi::OsString;
 use std::fmt::Write;
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use itertools::Itertools;
 use owo_colors::OwoColorize;
 use tokio::process::Command;
@@ -23,10 +23,10 @@ use uv_python::{
     PythonInstallation, PythonPreference, PythonRequest, VersionRequest,
 };
 
-use uv_requirements::{RequirementsSource, RequirementsSpecification};
+use uv_requirements::RequirementsSource;
 use uv_warnings::warn_user_once;
 
-use crate::commands::pip::operations::Modifications;
+use crate::commands::pip::operations::{self, Modifications};
 use crate::commands::project::environment::CachedEnvironment;
 use crate::commands::reporters::PythonDownloadReporter;
 use crate::commands::{project, ExitStatus, SharedState};
@@ -37,6 +37,8 @@ use crate::settings::ResolverInstallerSettings;
 pub(crate) async fn run(
     command: ExternalCommand,
     requirements: Vec<RequirementsSource>,
+    constraints: &[RequirementsSource],
+    overrides: &[RequirementsSource],
     package: Option<PackageName>,
     extras: ExtrasSpecification,
     dev: bool,
@@ -54,6 +56,27 @@ pub(crate) async fn run(
 ) -> Result<ExitStatus> {
     if preview.is_disabled() {
         warn_user_once!("`uv run` is experimental and may change without warning.");
+    }
+
+    // These cases seem quite complex because it changes the current package — let's just
+    // ban it entirely for now
+    if requirements
+        .iter()
+        .any(|source| matches!(source, RequirementsSource::PyprojectToml(_)))
+    {
+        bail!("Adding requirements from a `pyproject.toml` is not supported in `uv run`");
+    }
+    if requirements
+        .iter()
+        .any(|source| matches!(source, RequirementsSource::SetupCfg(_)))
+    {
+        bail!("Adding requirements from a `setup.cfg` is not supported in `uv run`");
+    }
+    if requirements
+        .iter()
+        .any(|source| matches!(source, RequirementsSource::SetupCfg(_)))
+    {
+        bail!("Adding requirements from a `setup.py` is not supported in `uv run`");
     }
 
     // Parse the input command.
@@ -207,7 +230,7 @@ pub(crate) async fn run(
                 &project,
                 &venv,
                 &lock,
-                extras,
+                &extras,
                 dev,
                 Modifications::Sufficient,
                 settings.as_ref().into(),
@@ -255,16 +278,22 @@ pub(crate) async fn run(
         );
     }
 
-    // Read the `--with` requirements.
-    let spec = if requirements.is_empty() {
+    // Read the requirements.
+    let spec = if requirements.is_empty() && constraints.is_empty() && overrides.is_empty() {
         None
     } else {
         let client_builder = BaseClientBuilder::new()
             .connectivity(connectivity)
             .native_tls(native_tls);
 
-        let spec =
-            RequirementsSpecification::from_simple_sources(&requirements, &client_builder).await?;
+        let spec = operations::read_requirements(
+            &requirements,
+            constraints,
+            overrides,
+            &extras,
+            &client_builder,
+        )
+        .await?;
 
         Some(spec)
     };
@@ -284,6 +313,7 @@ pub(crate) async fn run(
         if !(settings.reinstall.is_none() && settings.reinstall.is_none()) {
             return false;
         }
+
 
         match site_packages.satisfies(&spec.requirements, &spec.constraints, &spec.overrides) {
             // If the requirements are already satisfied, we're done.
@@ -355,35 +385,28 @@ pub(crate) async fn run(
             false,
         )?;
 
-        if requirements.is_empty() {
-            Some(venv)
-        } else {
-            debug!("Syncing ephemeral requirements");
-
-            let client_builder = BaseClientBuilder::new()
-                .connectivity(connectivity)
-                .native_tls(native_tls);
-
-            let spec =
-                RequirementsSpecification::from_simple_sources(&requirements, &client_builder)
-                    .await?;
-
-            // Install the ephemeral requirements.
-            Some(
-                project::update_environment(
-                    venv,
-                    spec,
-                    &settings,
-                    &state,
-                    preview,
-                    connectivity,
-                    concurrency,
-                    native_tls,
-                    cache,
-                    printer,
+        match spec {
+            None => Some(venv),
+            Some(spec) if spec.is_empty() => Some(venv),
+            Some(spec) => {
+                debug!("Syncing ephemeral requirements");
+                // Install the ephemeral requirements.
+                Some(
+                    project::update_environment(
+                        venv,
+                        spec,
+                        &settings,
+                        &state,
+                        preview,
+                        connectivity,
+                        concurrency,
+                        native_tls,
+                        cache,
+                        printer,
+                    )
+                    .await?,
                 )
-                .await?,
-            )
+            }
         }
     };
 

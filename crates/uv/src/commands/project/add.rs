@@ -237,7 +237,7 @@ pub(crate) async fn add(
         &VirtualProject::Project(project),
         &venv,
         &lock,
-        extras,
+        &extras,
         dev,
         Modifications::Sufficient,
         settings.as_ref().into(),

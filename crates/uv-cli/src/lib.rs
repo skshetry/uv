@@ -1781,6 +1781,37 @@ pub struct RunArgs {
     /// - `/home/ferris/.local/bin/python3.10` uses the exact Python at the given path.
     #[arg(long, short, env = "UV_PYTHON", verbatim_doc_comment)]
     pub python: Option<String>,
+
+    /// Require all packages listed in the given `requirements.txt` files.
+    ///
+    /// If a `pyproject.toml`, `setup.py`, or `setup.cfg` file is provided, `uv` will
+    /// extract the requirements for the relevant project.
+    ///
+    /// If `-` is provided, then requirements will be read from stdin.
+    #[arg(long, short, group = "sources", value_parser = parse_file_path)]
+    pub requirement: Vec<PathBuf>,
+
+    /// Constrain versions using the given requirements files.
+    ///
+    /// Constraints files are `requirements.txt`-like files that only control the _version_ of a
+    /// requirement that's installed. However, including a package in a constraints file will _not_
+    /// trigger the installation of that package.
+    ///
+    /// This is equivalent to pip's `--constraint` option.
+    #[arg(long, short, env = "UV_CONSTRAINT", value_delimiter = ' ', value_parser = parse_maybe_file_path)]
+    pub constraint: Vec<Maybe<PathBuf>>,
+
+    /// Override versions using the given requirements files.
+    ///
+    /// Overrides files are `requirements.txt`-like files that force a specific version of a
+    /// requirement to be installed, regardless of the requirements declared by any constituent
+    /// package, and regardless of whether this would be considered an invalid resolution.
+    ///
+    /// While constraints are _additive_, in that they're combined with the requirements of the
+    /// constituent packages, overrides are _absolute_, in that they completely replace the
+    /// requirements of the constituent packages.
+    #[arg(long, env = "UV_OVERRIDE", value_delimiter = ' ', value_parser = parse_maybe_file_path)]
+    pub r#override: Vec<Maybe<PathBuf>>,
 }
 
 #[derive(Args)]

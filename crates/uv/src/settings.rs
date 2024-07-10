@@ -155,6 +155,9 @@ pub(crate) struct RunSettings {
     pub(crate) with: Vec<String>,
     pub(crate) package: Option<PackageName>,
     pub(crate) python: Option<String>,
+    pub(crate) requirement: Vec<PathBuf>,
+    pub(crate) constraint: Vec<PathBuf>,
+    pub(crate) r#override: Vec<PathBuf>,
     pub(crate) refresh: Refresh,
     pub(crate) settings: ResolverInstallerSettings,
 }
@@ -176,6 +179,9 @@ impl RunSettings {
             refresh,
             package,
             python,
+            requirement,
+            constraint,
+            r#override,
         } = args;
 
         Self {
@@ -189,6 +195,15 @@ impl RunSettings {
             package,
             python,
             refresh: Refresh::from(refresh),
+            requirement,
+            constraint: constraint
+                .into_iter()
+                .filter_map(Maybe::into_option)
+                .collect(),
+            r#override: r#override
+                .into_iter()
+                .filter_map(Maybe::into_option)
+                .collect(),
             settings: ResolverInstallerSettings::combine(
                 resolver_installer_options(installer, build),
                 filesystem,
