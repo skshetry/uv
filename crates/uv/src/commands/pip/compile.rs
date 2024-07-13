@@ -547,6 +547,12 @@ fn cmd(
                 return Some(None);
             }
 
+            // Always skip the `--upgrade-package` flag.
+            if arg == "--upgrade-package" || arg == "-P" {
+                *skip_next = None;
+                return Some(None);
+            }
+
             // Always skip the `--quiet` flag.
             if arg == "--quiet" || arg == "-q" {
                 *skip_next = None;
